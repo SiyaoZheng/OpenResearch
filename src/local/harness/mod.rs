@@ -983,6 +983,9 @@ any action. For the detail on a specific area, run `orx skill <name>` to print
 that module (e.g. `orx skill experiment-tree`, `orx skill compute`); the same
 command reads that module directly from the installed CLI.
 
+For independent experiment reports, follow `orx skill reports` and the report
+destination in the project playbook.
+
 ## 2. Carry out the user's research goal
 
 Follow the auto-research loop from the guide: create the baseline experiment

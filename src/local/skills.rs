@@ -39,14 +39,14 @@ Write a visual autoresearch report:
 - Use figures, compact tables, diagrams, and short code excerpts when they explain the result better than prose. Avoid long uninterrupted text, repeated conclusions, and exhaustive infrastructure histories.
 - Clearly separate paper evidence, observed evidence, divergent or inconclusive results, partial runs, and unattempted claims. End with a concise assessment and descriptive links to the relevant experiment branches.
 - Use one clear title and normal Markdown hierarchy: H2 for major sections and H3 only for genuine subsections.
-- Keep the report self-contained: store figures in an `images/` directory beside `report.md`, reference them as `images/<filename>`, and verify every image renders before publication.
+- Keep the report self-contained. Follow `orx-reports` for figure links in Notion. For a file-based report, keep figures in an `images/` directory beside `report.md`. Verify every image renders before publication.
 - Perform a final editorial pass for clarity and concision. The result should feel like an illustrated technical article, not an experiment database dump.
 
 Publish a polished GitHub artifact:
 - Treat the repository README as the public landing page, not as an afterthought. Add a project-specific reproduction section at the very top, before any upstream README content. It must state which paper claim was tested, what was done, the assessment, the paper number versus the observed number, the downscaling/substitutions, the agreed compute, and links to the detailed report or notebook when present.
 - In that top section, add a compact `Experiment log` or provenance table covering the important branches only. Use descriptive links to each branch and include columns for branch/experiment, purpose or change, **exact run command**, assessment/outcome, and compute. Copy the command verbatim from `orx exp status`; do not abbreviate it, replace it with pseudocode, or show only the entrypoint.
 - Account for `main` explicitly. If a formal experiment was ever launched from `main`, include `main` in the table with the exact command and result. If `main` is presentation-only, say `Not run as an experiment (publication surface)` rather than inventing a command.
-- Publish every reader-facing report on `main`, alongside the README and other small presentation artifacts. A report is not considered published if it exists only in the project artifacts directory, an `orx/*` experiment branch, or an internal run log. Copy or recreate the final report under a clear repository path such as `reports/<topic>/report.md` or `artifacts/<topic>/report.md`, then add a descriptive link to it in the README's top reproduction section. If several reports are produced, link every important one and briefly say what each contains.
+- Deliver reader-facing reports as specified in `orx-reports`. For a project with a Notion report database, share the page links with the team. For reports published in the repository, use `main` and a clear path such as `reports/<topic>/report.md`, and link each report from the README's top reproduction section with a brief description.
 - Also publish a self-contained, tutorial-style marimo notebook on `main` that explains the central claim and opens with the already-produced evidence; do not make readers rerun expensive experiments to see the result. Validate it with `marimo check <notebook.py>`, embed small results or fetch them from public URLs instead of assuming repository-relative artifacts exist in Molab, and keep optional interactive work bounded and separate from formal reproduction evidence. If the repository is public—or the user explicitly requested public publication and its history is safe to expose—add and verify `[![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/<owner>/<repo>/blob/main/<notebook.py>)` in the README. Otherwise preserve private visibility, omit the unusable Molab link, and include concise local `marimo edit <notebook.py>` and `marimo run <notebook.py>` instructions. Never change repository visibility without explicit authorization.
 - Include failed branches only when they explain the lineage to the successful result. Keep raw experiment and run IDs in `orx exp desc`, not in the README.
 - Keep the README current whenever another important branch is run or its assessment changes. A reader landing on GitHub should be able to understand what was tried and reproduce the command without inspecting the internal experiment database.
@@ -71,8 +71,8 @@ scoring method, runtime, and an honest assessment in `orx exp desc`. Repair a
 node in place when a run answers nothing; branch a child after a meaningful
 result.
 
-Produce a self-contained local report under the project's Artifacts directory,
-with figures in an adjacent `images/` folder. Open with the strongest result,
+Produce a self-contained report following `orx-reports` for the project destination
+and figure links. Open with the strongest result,
 separate paper evidence from observed evidence, and link experiment branches by
 name without assuming hosted URLs. Do not publish, change repository visibility,
 or contact a Git hosting service unless they explicitly request publication.

@@ -172,8 +172,8 @@ intended flow — do **not** edit a frozen node or rewrite the run command:
    down the tree, it never rewrites a node that already measured something.
 
 Stop when the goal is met, or after ~3 consecutive failed or regressed runs.
-When you stop, write up the tree as a descriptively named project artifact — see
-the `orx-reports` skill for naming and folder guidance.
+When you stop, write up the tree as an independent project report. Follow
+`orx-reports` for its destination and the link to give the reader.
 
 Close any turn that ran or changed experiments with a short experiment summary:
 one line per relevant node with what it tested, its status, and the headline
@@ -192,7 +192,9 @@ overwrites whatever was there.
 ```sh
 orx exp desc <expId>                          # print the description to stdout (empty → hint on stderr)
 orx exp desc <expId> --set "tried lr=3e-4, diverged at step 4k"   # overwrite with a short note
-cat notes.md | orx exp desc <expId> --stdin   # overwrite from stdin (long markdown)
+orx exp desc <expId> --stdin <<'MD'
+Complete node description, including prior evidence and the latest result.
+MD
 ```
 
 - **Read** prints the text to **stdout** (pipe/redirect-friendly); when empty, a

@@ -28,8 +28,9 @@ private to this chat session.
   need alphaXiv sign-in on the computer running this chat. Without alphaXiv
   tools, read the library with `orx alphaxiv library --json`
 {compute_bullet}
-- Artifacts directory: `{artifacts}` — durable project outputs such as reports,
-  figures, images, CSVs, and PDFs are stored as project artifacts.
+- Artifacts directory: `{artifacts}` — figures, images, CSVs, and PDFs are stored
+  as project artifacts. For independent reports, follow `orx-reports` and the
+  project playbook's designated report destination.
 
 ## Project state
 
@@ -121,9 +122,9 @@ label an inference instead of presenting it as an observation.
 - Measured results use raw `<run id="<runId>" />` tags, optionally with a concise
   `label="+3.65pp"`. Read the cited run's log before reporting the result; status
   alone is not evidence.
-- Artifacts use `<file path="artifacts/<relative-path>" />`. Put any report, table
-  or figure the user should open there: one left only in this chat's worktree
-  stops opening once the worktree is removed.
+- Artifact files use `<file path="artifacts/<relative-path>" />`. Put any file
+  the user should open there so its link survives worktree removal. For a report
+  written to Notion, give the reader its Notion page URL.
 
 When you create an image, show it inline in the chat handoff with Markdown:
 `![Description](artifacts/figure.svg)`. This applies to SVG, PNG, and other
@@ -148,7 +149,7 @@ in the right pane. Use these local links for image references instead of file ta
 Show each underlying image file inline only once per conversation; use a local
 link for later references. Different crops or edits may be shown separately.
 
-Other project files or artifacts mentioned in prose must use a file tag.
+Other local project files or artifact files mentioned in prose must use a file tag.
 Paths in commands and code fences are exempt. Emit file and run tags as raw text, never
 inside backticks or fences. Scholarly claims use the source links required by
 `orx-lit-review`, not project file or run tags.

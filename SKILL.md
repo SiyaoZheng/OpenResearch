@@ -145,7 +145,7 @@ list, with one-line descriptions, is printed at the end of `orx skill` output):
 - **orx-agent-delegation** — delegate to other models and chats with orx's MCP tools.
 - **orx-logs** — retrieve persisted run output for progress, debugging, or measurements.
 - **orx-results** — interpret, compare, and summarize measured experiment outcomes.
-- **orx-reports** — write durable research outputs into the project's artifacts directory.
+- **orx-reports** — write independent reports directly to the project's designated Notion database when configured, and organize artifact files.
 - **orx-figures** — publication-quality figures in matplotlib or TikZ. Load it **before** writing any plotting code, then read the one reference for that figure type.
 - **orx-customize** — add reusable skills and LaTeX templates across projects; add model endpoints and fix how agents and providers present (`orx agents`).
 - **orx-paper** — draft a paper or preprint as LaTeX that renders and compiles to PDF.

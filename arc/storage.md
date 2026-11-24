@@ -124,7 +124,7 @@ Detection repeats on every start, so an interrupted rename or reference repair r
 
 ## What leaves the machine
 
-Projects can bind `orx exp desc` to a Notion data source using the official Notion CLI (`ntn`). Each read fetches the current Notion page. Each write updates that page and then refreshes the local description for the dashboard and project exports. A connection error is reported to the caller. Other project records keep their usual storage.
+Projects can bind `orx exp desc` to a Notion data source using the official Notion CLI (`ntn`). Each read fetches the current Notion page. Each write updates that page and then refreshes the local description for the dashboard and project exports. A connection error is reported to the caller. If the project also designates a Notion database for independent reports, agents write the report body and its properties directly to that database with `ntn` as described in `orx-reports`.
 
 Sign in to the intended workspace using `ntn login`. Save this JSON in `<orx-data-dir>/notion-sync/<project-id>/desc.json` with the workspace and data source UUIDs and the column names of the existing data source. The experiment ID column must use the rich-text type. The title column must use the title type.
 
