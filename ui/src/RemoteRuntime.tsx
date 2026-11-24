@@ -476,14 +476,18 @@ export function RuntimeRoot() {
   const runtimeQuery = useQuery({
     ...getRuntimeQuery(),
     enabled: !launchPlaceholder,
-    refetchInterval: (query) => query.state.status === "error" || query.state.data?.kind === "ssh" ? 2_000 : false,
+    refetchInterval: (query) => {
+      const runtime = query.state.data;
+      if (query.state.status === "error" || runtime?.kind === "ssh") return 2_000;
+      return runtime?.notionPreferences ? 30_000 : false;
+    },
     refetchIntervalInBackground: true,
   });
   const runtime = runtimeQuery.data ?? null;
   const error = runtimeQuery.error?.message ?? null;
   useQuery({
     ...reportLocaleQuery(locale),
-    enabled: !launchPlaceholder && (runtime?.kind === "local" ||
+    enabled: !launchPlaceholder && ((runtime?.kind === "local" && !runtime.notionPreferences) ||
       (runtime?.kind === "ssh" && runtime.session.status === "connected")),
   });
   useEffect(() => {
@@ -496,6 +500,10 @@ export function RuntimeRoot() {
       return;
     }
     previousWorkspace.current = nextWorkspace;
+    if (next.kind === "local") {
+      const preferred = next.notionPreferences?.dashboardLocale;
+      if (preferred && isLocale(preferred)) setLocale(preferred);
+    }
     if (next.kind === "ssh") {
       if (!preferencesApplied.current) {
         preferencesApplied.current = true;

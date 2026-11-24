@@ -6818,18 +6818,22 @@ async fn set_telemetry_settings(Json(req): Json<SetTelemetryReq>) -> ApiResult {
 #[derive(Deserialize)]
 struct SetLocaleReq {
     locale: String,
+    #[serde(default)]
+    passive: bool,
 }
 
-async fn set_dashboard_locale(Json(SetLocaleReq { locale }): Json<SetLocaleReq>) -> ApiResult {
-    // Attached to every later batch, so a value the server rejects would drop them all.
-    let valid = (2..=16).contains(&locale.len())
-        && locale
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-');
-    if !valid {
+async fn set_dashboard_locale(
+    Json(SetLocaleReq { locale, passive }): Json<SetLocaleReq>,
+) -> ApiResult {
+    if !crate::telemetry::valid_dashboard_locale(&locale) {
         return Err(bad_request(format!("invalid locale: {locale:?}")));
     }
     tokio::task::spawn_blocking(move || {
+        if passive && crate::telemetry::notion_preferences::is_bound() {
+            return Ok(Json(
+                json!({ "locale": crate::telemetry::dashboard_locale() }),
+            ));
+        }
         crate::telemetry::set_dashboard_locale(&locale)
             .map_err(|e| ApiError::from(anyhow!("could not save the dashboard locale: {e}")))?;
         crate::telemetry::capture("dashboard_locale", json!({}));
@@ -8471,12 +8475,19 @@ async fn disconnect_remote_session(
     Ok(Json(json!(state.remote_sessions.disconnect(&id).await?)))
 }
 
-async fn local_runtime() -> Json<Value> {
-    Json(json!({
+async fn local_runtime() -> ApiResult {
+    let mut runtime = json!({
         "kind": "local",
         "version": env!("CARGO_PKG_VERSION"),
         "buildChannel": crate::telemetry::build_channel(),
-    }))
+    });
+    if crate::telemetry::notion_preferences::is_bound() {
+        let locale = tokio::task::spawn_blocking(crate::telemetry::dashboard_locale)
+            .await
+            .map_err(|e| ApiError::from(anyhow!("Reading dashboard language: {e}")))?;
+        runtime["notionPreferences"] = json!({ "dashboardLocale": locale });
+    }
+    Ok(Json(runtime))
 }
 
 enum OpenCodeError {

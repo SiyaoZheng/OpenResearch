@@ -358,7 +358,7 @@ export function createSettingsQueries(client: WorkspaceClient, api: Api, events:
 
   const reportLocaleQuery = (locale: string) => queryOptions({
     queryKey: workspaceKey("reportLocale", locale),
-    queryFn: ({ signal }) => api.reportLocale(locale, signal),
+    queryFn: ({ signal }) => api.reportLocale(locale, signal, true),
     staleTime: 0,
     retry: 3,
     retryDelay: 1_000,

@@ -825,7 +825,7 @@ export interface RemoteSessionInfo {
 export type BuildChannel = "production" | "development";
 
 export type RuntimeInfo =
-  | { kind: "local"; version: string; buildChannel: BuildChannel }
+  | { kind: "local"; version: string; buildChannel: BuildChannel; notionPreferences?: { dashboardLocale: string | null } }
   | { kind: "ssh"; version: string; buildChannel: BuildChannel; dashboardProtocol: number; session: RemoteSessionInfo };
 
 export interface RemoteStopPreview {
@@ -3121,13 +3121,13 @@ export function createApi(
     void post<{ ok: boolean }>("/api/telemetry/event", event).catch(() => {});
   };
 
-  const reportLocale = (locale: string, signal?: AbortSignal) =>
+  const reportLocale = (locale: string, signal?: AbortSignal, passive = false) =>
     writeResponse("/api/telemetry/locale", {
       method: "POST",
       signal,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ locale }),
-    }).then((r) => json<{ locale: string }>(r));
+      body: JSON.stringify({ locale, passive }),
+    }).then((r) => json<{ locale: string | null }>(r));
 
   const getHarnessSetupCommands = (signal?: AbortSignal) =>
     get<Record<HarnessId, HarnessSetupCommands>>("/api/harnesses/setup/commands", signal);

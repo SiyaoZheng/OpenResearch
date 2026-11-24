@@ -21,6 +21,7 @@
 //! - **musl-safe.** Reuses a rustls `reqwest` client; adds no TLS/C dependency.
 
 pub(crate) mod harness;
+pub(crate) mod notion_preferences;
 
 use std::io::IsTerminal;
 use std::path::PathBuf;
@@ -247,7 +248,7 @@ pub(crate) fn set_persisted_data_dir(data_dir: Option<String>) -> std::io::Resul
 /// without a backend is meaningless and is dropped. `crate::config` re-exports
 /// this as `compute_default`.
 pub(crate) fn compute_default() -> Option<(String, Option<String>)> {
-    let s = load_settings()?;
+    let s = notion_preferences::load();
     let backend = s.default_backend.filter(|b| !b.is_empty())?;
     Some((backend, s.default_flavor.filter(|f| !f.is_empty())))
 }
@@ -261,7 +262,7 @@ pub(crate) fn set_compute_default(
     backend: Option<String>,
     flavor: Option<String>,
 ) -> std::io::Result<()> {
-    mutate_settings(|s| {
+    notion_preferences::mutate(|s| {
         s.default_backend = backend.filter(|b| !b.is_empty());
         s.default_flavor = if s.default_backend.is_some() {
             flavor.filter(|f| !f.is_empty())
@@ -310,15 +311,13 @@ pub(crate) fn set_profile(profile: ResearchProfile) -> std::io::Result<()> {
 /// Read by discovery and paper reading; `crate::config` re-exports this as
 /// `disabled_lit_sources`.
 pub(crate) fn disabled_lit_sources() -> Vec<String> {
-    load_settings()
-        .map(|s| s.disabled_lit_sources)
-        .unwrap_or_default()
+    notion_preferences::load().disabled_lit_sources
 }
 
 /// Persist the disabled-source set, preserving every other settings field (same
 /// `mutate_settings` guarantees as the data dir).
 pub(crate) fn set_disabled_lit_sources(disabled: Vec<String>) -> std::io::Result<()> {
-    mutate_settings(|s| s.disabled_lit_sources = disabled)
+    notion_preferences::mutate(|s| s.disabled_lit_sources = disabled)
 }
 
 pub(crate) fn github_for_new_projects() -> bool {
@@ -334,24 +333,24 @@ pub(crate) fn set_github_for_new_projects(enabled: bool) -> std::io::Result<()> 
 /// Whether orx may apply updates on its own. Defaults to enabled — the whole
 /// point is that an install nobody tends stays current.
 pub(crate) fn auto_update_enabled() -> bool {
-    load_settings()
-        .and_then(|settings| settings.auto_update)
-        .unwrap_or(true)
+    notion_preferences::load().auto_update.unwrap_or(true)
 }
 
 pub(crate) fn set_auto_update_enabled(enabled: bool) -> std::io::Result<()> {
-    mutate_settings(|settings| settings.auto_update = Some(enabled))
+    notion_preferences::mutate(|settings| settings.auto_update = Some(enabled))
 }
 
 pub(crate) fn update_channel() -> crate::updates::ReleaseChannel {
-    load_settings()
-        .and_then(|settings| settings.update_channel)
+    notion_preferences::load()
+        .update_channel
         .and_then(|channel| serde_json::from_value(channel).ok())
         .unwrap_or_else(crate::updates::current_release_channel)
 }
 
 pub(crate) fn set_update_channel(channel: crate::updates::ReleaseChannel) -> std::io::Result<()> {
-    mutate_settings(|settings| settings.update_channel = Some(serde_json::json!(channel)))
+    notion_preferences::mutate(|settings| {
+        settings.update_channel = Some(serde_json::json!(channel))
+    })
 }
 
 pub(crate) fn github_default_prompt_seen() -> bool {
@@ -387,14 +386,21 @@ fn sign_in() -> Option<&'static str> {
 }
 
 pub(crate) fn dashboard_locale() -> Option<String> {
-    load_settings().and_then(|settings| settings.dashboard_locale)
+    notion_preferences::load().dashboard_locale
+}
+
+pub(crate) fn valid_dashboard_locale(locale: &str) -> bool {
+    (2..=16).contains(&locale.len())
+        && locale
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
 pub(crate) fn set_dashboard_locale(locale: &str) -> std::io::Result<()> {
-    if dashboard_locale().as_deref() == Some(locale) {
+    if !notion_preferences::is_bound() && dashboard_locale().as_deref() == Some(locale) {
         return Ok(());
     }
-    mutate_settings(|settings| settings.dashboard_locale = Some(locale.to_string()))
+    notion_preferences::mutate(|settings| settings.dashboard_locale = Some(locale.to_string()))
 }
 
 fn settings_path() -> PathBuf {
@@ -402,13 +408,21 @@ fn settings_path() -> PathBuf {
 }
 
 pub(crate) fn ssh_settings() -> crate::error::Result<crate::config::SshSettings> {
-    let raw = match std::fs::read_to_string(settings_path()) {
-        Ok(raw) => raw,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Default::default()),
+    let settings = match std::fs::read_to_string(settings_path()) {
+        Ok(raw) => serde_json::from_str(&raw)
+            .map_err(|error| crate::error::anyhow!("Cannot read SSH settings: {error}"))?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Settings::default(),
         Err(error) => return Err(error.into()),
     };
-    let settings: Settings = serde_json::from_str(&raw)
-        .map_err(|error| crate::error::anyhow!("Cannot read SSH settings: {error}"))?;
+    let mut settings = notion_preferences::effective(settings);
+    if let Some(host) = &settings.ssh.default_host {
+        if notion_preferences::is_bound()
+            && !crate::commands::up::compute_settings::is_configured_ssh_host(host)
+        {
+            eprintln!("The default SSH host '{host}' on the Notion preference page is not configured on this machine. Add it under Compute or in ~/.ssh/config, or choose a configured host.");
+            settings.ssh.default_host = None;
+        }
+    }
     for options in settings.ssh.hosts.values() {
         crate::jobs::ssh::validate_host_options(options)?;
     }
@@ -430,7 +444,7 @@ pub(crate) fn set_ssh_host(
 }
 
 pub(crate) fn set_ssh_default(host: Option<String>) -> std::io::Result<()> {
-    mutate_settings(|settings| settings.ssh.default_host = host)
+    notion_preferences::mutate(|settings| settings.ssh.default_host = host)
 }
 
 fn outbox_dir() -> PathBuf {
@@ -854,7 +868,7 @@ fn build_payload_with_id(
     }
     let settings = load_settings();
     let settings = settings.as_ref();
-    if let Some(locale) = settings.and_then(|s| s.dashboard_locale.as_deref()) {
+    if let Some(locale) = notion_preferences::last_read_locale(settings) {
         payload["context"]["locale"] = json!(locale);
     }
     // The API rejects the whole batch for a malformed id.

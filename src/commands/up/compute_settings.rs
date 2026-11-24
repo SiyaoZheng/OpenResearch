@@ -1044,13 +1044,17 @@ pub(super) async fn require_saved_remote(host: &str) -> Result<(), ApiError> {
     }
 }
 
-pub(super) async fn require_configured_ssh_host(host: &str) -> Result<(), ApiError> {
-    let hosts = tokio::task::spawn_blocking(list_ssh_hosts)
-        .await
-        .map_err(|e| ApiError::from(anyhow!("ssh task failed: {e}")))?;
-    if hosts
+pub(crate) fn is_configured_ssh_host(host: &str) -> bool {
+    list_ssh_hosts()
         .iter()
         .any(|candidate| candidate.get("host").and_then(Value::as_str) == Some(host))
+}
+
+pub(super) async fn require_configured_ssh_host(host: &str) -> Result<(), ApiError> {
+    let host = host.to_owned();
+    if tokio::task::spawn_blocking(move || is_configured_ssh_host(&host))
+        .await
+        .map_err(|e| ApiError::from(anyhow!("ssh task failed: {e}")))?
     {
         Ok(())
     } else {
