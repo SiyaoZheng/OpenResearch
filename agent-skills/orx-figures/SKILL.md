@@ -123,6 +123,8 @@ link.
 | A paper (`.tex`) | `figs/` beside the `.tex` in the working tree — `\includegraphics` resolves paths relative to the source, and the artifacts directory is not beside it | `<file path="figs/loss_curve.pdf" />` — repository-relative, **no** `artifacts/` prefix |
 | A report, a summary, an answer in chat | Load `orx-reports` and use the relevant topic or deliverable folder under the artifacts directory, e.g. `transformer-sweep/figures/` | `<file path="artifacts/transformer-sweep/figures/loss_curve.pdf" />` |
 
+In a Notion report, attach the figure to the page or link a URL its readers can open.
+
 **The tag must match the destination.** A figure written to the worktree but
 cited with an `artifacts/` prefix is looked for in the artifacts directory and
 in the worktree at `artifacts/...` — it is in neither, and the user gets "File
