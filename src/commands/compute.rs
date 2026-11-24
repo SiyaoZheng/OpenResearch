@@ -1,5 +1,9 @@
 //! Configure compute and inspect execution readiness without a dashboard server.
 
+mod instructions;
+
+pub use instructions::ComputeDocument;
+
 use super::up::compute_settings as settings;
 use crate::error::anyhow;
 use clap::{Args, Subcommand, ValueEnum};
@@ -200,6 +204,9 @@ pub enum ComputeCommand {
     },
     /// Machine-wide, user-owned compute guidance.
     Instructions {
+        /// Select the global guidance or the Apple Metal defaults.
+        #[arg(long, global = true, value_enum, default_value = "CUSTOM.md")]
+        document: ComputeDocument,
         #[command(subcommand)]
         command: InstructionsCommand,
     },
@@ -324,7 +331,7 @@ pub enum SshConfigCommand {
 #[derive(Debug, Subcommand)]
 pub enum InstructionsCommand {
     Show,
-    /// Initialize the file if absent and print its absolute path.
+    /// Print the local file path. A Notion binding exports the current page there.
     Path,
     Set {
         #[arg(long)]
@@ -543,23 +550,18 @@ async fn run_command(command: ComputeCommand, json_output: bool) -> Result<()> {
                 settings::write_ssh_config(read_input(&file)?, read_input(&previous_file)?).await?
             }
         },
-        ComputeCommand::Instructions { command } => {
-            let path = instructions_path();
-            match command {
-                InstructionsCommand::Show => instructions_read(&path)?,
-                InstructionsCommand::Path => {
-                    instructions_init(&path)?;
-                    if !json_output {
-                        println!("{}", path.display());
-                        return Ok(());
-                    }
-                    json!({"path": path})
-                }
-                InstructionsCommand::Set {
-                    file,
-                    expected_revision,
-                } => instructions_write(&path, &read_input(&file)?, &expected_revision)?,
+        ComputeCommand::Instructions { document, command } => {
+            let value = instructions::run(document, command).await?;
+            if !json_output && value.get("content").is_none() {
+                println!(
+                    "{}",
+                    value["path"]
+                        .as_str()
+                        .ok_or_else(|| anyhow!("Missing compute document path"))?
+                );
+                return Ok(());
             }
+            value
         }
     };
     if json_output {
@@ -612,58 +614,6 @@ fn validate_check(args: &CheckArgs) -> Result<()> {
         return Err(anyhow!("--address only applies to ray."));
     }
     Ok(())
-}
-
-fn instructions_path() -> std::path::PathBuf {
-    crate::config::config_dir().join("compute/CUSTOM.md")
-}
-fn revision(content: &str) -> String {
-    use sha2::{Digest, Sha256};
-    format!("{:x}", Sha256::digest(content.as_bytes()))
-}
-fn instructions_init(path: &std::path::Path) -> Result<()> {
-    std::fs::create_dir_all(
-        path.parent()
-            .ok_or_else(|| anyhow!("Missing compute directory"))?,
-    )?;
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    match options.open(path) {
-        Ok(_) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
-        Err(e) => Err(e.into()),
-    }
-}
-fn instructions_read(path: &std::path::Path) -> Result<Value> {
-    let content = match std::fs::read_to_string(path) {
-        Ok(s) => s,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(e) => return Err(e.into()),
-    };
-    Ok(json!({"path": path, "revision": revision(&content), "content": content}))
-}
-fn instructions_write(path: &std::path::Path, content: &str, expected: &str) -> Result<Value> {
-    instructions_init(path)?;
-    let file = std::fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(path.with_extension("lock"))?;
-    let mut lock = fd_lock::RwLock::new(file);
-    let _guard = lock.write()?;
-    if instructions_read(path)?["revision"] != expected {
-        return Err(anyhow!(
-            "Custom instructions changed. Read them again before saving."
-        ));
-    }
-    crate::local::git::atomic_write_with_mode(path, content.as_bytes(), Some(0o600))?;
-    instructions_read(path)
 }
 
 async fn connect(args: &CheckArgs) -> Result<()> {

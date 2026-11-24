@@ -2,7 +2,7 @@
 use super::Settings;
 use crate::error::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -18,6 +18,8 @@ const TIMEOUT: Duration = Duration::from_secs(15);
 struct Binding {
     workspace_id: String,
     page_id: String,
+    #[serde(default)]
+    compute_documents: std::collections::BTreeMap<String, String>,
 }
 
 fn binding_path() -> PathBuf {
@@ -44,6 +46,28 @@ fn binding() -> Result<Option<Binding>> {
         .with_context(|| format!("Invalid page_id in {}", path.display()))?
         .to_string();
     Ok(Some(binding))
+}
+
+pub(crate) fn compute_document_page(document: &str) -> Result<Option<(String, String)>> {
+    let Some(config) = binding()? else {
+        return Ok(None);
+    };
+    let Some(id) = config.compute_documents.get(document) else {
+        return Ok(None);
+    };
+    let page = Uuid::parse_str(id).with_context(|| {
+        format!(
+            "Invalid page ID for {document} in {}",
+            binding_path().display()
+        )
+    })?;
+    if page.to_string() == config.page_id {
+        bail!(
+            "Use the separate {document} memory page in {}",
+            binding_path().display()
+        );
+    }
+    Ok(Some((config.workspace_id, page.to_string())))
 }
 
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -332,10 +356,13 @@ impl Binding {
         let longest_ticks = json.split(|c| c != '`').map(str::len).max().unwrap_or(0);
         let fence = "`".repeat(3.max(longest_ticks + 1));
         let replacement = format!("{HEADING}\n\n{fence}json\n{json}\n{fence}");
-        self.api("PATCH", Some(json!({
-            "type": "update_content", "markdown_version": "v2",
-            "update_content": { "content_updates": [{ "old_str": block.original, "new_str": replacement }] }
-        })))?;
+        self.api(
+            "PATCH",
+            Some(crate::notion::replace_markdown(
+                block.original,
+                &replacement,
+            )),
+        )?;
         let response = self.api("GET", None).context("Notion accepted the preference change but confirmation failed. Read the page before retrying")?;
         let confirmed = self.block(&response)?.preferences()?;
         let confirmed_fields = serde_json::to_value(&confirmed)?;

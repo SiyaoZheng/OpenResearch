@@ -316,7 +316,8 @@ fn is_readonly_orx(tokens: &[&str], stage: &str) -> bool {
                                     | ComputeCommand::Status
                                     | ComputeCommand::Show { .. }
                                     | ComputeCommand::Instructions {
-                                        command: InstructionsCommand::Show
+                                        command: InstructionsCommand::Show,
+                                        ..
                                     }
                                     | ComputeCommand::SshConfig {
                                         command: SshConfigCommand::Show

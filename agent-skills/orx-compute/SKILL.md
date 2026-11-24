@@ -35,8 +35,11 @@ orx compute status --json
 orx compute instructions show --json
 ```
 
-`instructions show` returns the machine-wide `CUSTOM.md` content, absolute path,
-and revision. Missing or blank content means there are no custom instructions.
+`instructions show` returns the machine-wide `CUSTOM.md` content, local path
+and revision. A bound source also returns its `notionUrl` and reads the original
+memory page through `ntn` on each call. For the machine's Apple Metal profile,
+use `orx compute instructions show --document metal-defaults.json`. Capture
+that JSON in the experiment's committed configuration when pinning a run.
 Read the section for the selected backend/host, then its backend guide below.
 For configuration, connection tests, login, or instruction updates, read
 [references/configuration.md](references/configuration.md)
@@ -48,7 +51,8 @@ scripts cannot express the workflow and the agent truly needs extra steps.
 Keep any such guidance short: working commands, environment paths, cluster
 constraints, and documentation links.
 Use `orx compute instructions set --file - --expected-revision <revision from show>`;
-never write the file directly with file-edit tools or shell redirects.
+specify the same `--document` for Metal. With a Notion binding, `set`
+updates the original page. Edit its document section in place when using `ntn`.
 Preserve the user's guidance; replace obsolete steps instead of appending run
 logs. Never store credentials or invent cluster commands. Read linked cluster
 instructions before using unfamiliar scheduler options. Instructions do not
