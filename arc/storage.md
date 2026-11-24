@@ -1,6 +1,6 @@
 # Where state lives
 
-orx keeps a researcher's work on their own machine. Projects, experiments, runs, chats and transcripts are kept nowhere else ([what leaves the machine](#what-leaves-the-machine) lists what is sent, and when), so the copy on disk is the only one, and every orx process on the machine reads and writes it at once: the dashboard and its run engine, the desktop app, a terminal `orx`, an agent's `orx`, a supervisor an older orx left watching a job.
+orx keeps projects, experiments, runs, chats and transcripts on the researcher's machine. The dashboard and run engine, desktop app, terminal and agent CLIs, and supervisors use the same local store. A project with a Notion description binding uses its Notion pages as the source for `orx exp desc`. [What leaves the machine](#what-leaves-the-machine) describes when orx sends data to a service.
 
 ## Three directories
 
@@ -123,6 +123,22 @@ Old layouts are recognised by where things are, never by a marker recording that
 Detection repeats on every start, so an interrupted rename or reference repair resumes on the next run. An interrupted cross-filesystem copy, or a repository root present in both places, stops with every file preserved and asks the user to resolve it.
 
 ## What leaves the machine
+
+Projects can bind `orx exp desc` to a Notion data source using the official Notion CLI (`ntn`). Each read fetches the current Notion page. Each write updates that page and then refreshes the local description for the dashboard and project exports. A connection error is reported to the caller. Other project records keep their usual storage.
+
+Sign in to the intended workspace using `ntn login`. Save this JSON in `<orx-data-dir>/notion-sync/<project-id>/desc.json` with the workspace and data source UUIDs and the column names of the existing data source. The experiment ID column must use the rich-text type. The title column must use the title type.
+
+```json
+{
+  "workspace_id": "<workspace-uuid>",
+  "data_source_id": "<data-source-uuid>",
+  "title_property": "Name",
+  "experiment_id_property": "Experiment ID",
+  "notes_heading": "## Team notes"
+}
+```
+
+The optional `notes_heading` reserves a section for collaborators. The CLI reads and edits the description above the heading. The optional `create_properties` object supplies additional Notion page properties when the CLI creates a page. A project's first read seeds a missing page with that experiment's local description. The experiment ID identifies the page across subsequent reads and writes. The binding applies only to that project in that ORX data directory.
 
 **Code, experiments, runs, logs, chats, transcripts and artifacts go to openresearch.sh only when the user publishes a project.** Otherwise its API serves accounts, organizations, SSH keys, sandboxes and compute catalogs, plus the telemetry and feedback below. A test keeps research-state endpoints other than publishing out of `src/client.rs`; `src/jobs/rental.rs`, the box's `orx-host` and `src/telemetry.rs` call the API beyond that test's reach. Other traffic:
 

@@ -182,6 +182,8 @@ questions and turns that launch or change no experiments need no summary.
 
 ## Experiment description / notes — `orx exp desc`
 
+For a project with a Notion description binding, this command reads the current Notion page and saves edits directly to that page using `ntn`. A successful write also refreshes the local description. Keep team notes below the configured heading on the page. Other projects use the local experiment store.
+
 Each experiment node carries a free-form **description** (markdown) — the same
 field set by `create-experiment --description`. Use it for notes: observations,
 hypotheses, or a running summary. It is a whole-document field: writing

@@ -348,22 +348,44 @@ impl LocalPlane {
     pub async fn experiment_desc(&self, set: Option<String>, stdin: bool) -> Result<()> {
         let input = DescInput::resolve(set, stdin).await?;
         let mut exp = self.experiment()?.clone();
+        if let Some(notion) = super::notion_desc::Backend::for_project(&exp.project_id)? {
+            let _lock = notion.lock()?;
+            match input {
+                DescInput::Get => {
+                    let body = notion.description(&exp, None).await?;
+                    Self::print_description(&exp.id, Some(&body));
+                }
+                DescInput::Set(body) => {
+                    notion.description(&exp, Some(&body)).await?;
+                    self.store
+                        .cache_experiment_description(&exp.id, &body)
+                        .context(
+                        "Description saved in Notion; refreshing the local experiment copy failed",
+                    )?;
+                    println!("✓ Description saved in Notion.");
+                }
+            }
+            return Ok(());
+        }
         match input {
             DescInput::Set(description) => {
                 exp.description = Some(description);
                 self.store.update_local_experiment(&exp)?;
                 println!("\u{2713} Description saved.");
             }
-            DescInput::Get => match exp.description.as_deref().filter(|d| !d.trim().is_empty()) {
-                Some(d) => println!("{d}"),
-                None => eprintln!(
-                    "No description set. Add one with `orx exp desc {} --set \"…\"` \
-                     or pipe a file: `cat notes.md | orx exp desc {} --stdin`.",
-                    exp.id, exp.id
-                ),
-            },
+            DescInput::Get => Self::print_description(&exp.id, exp.description.as_deref()),
         }
         Ok(())
+    }
+
+    fn print_description(id: &str, body: Option<&str>) {
+        match body.filter(|d| !d.trim().is_empty()) {
+            Some(d) => println!("{d}"),
+            None => eprintln!(
+                "No description set. Add one with `orx exp desc {id} --set \"…\"` \
+                 or pipe a file: `cat notes.md | orx exp desc {id} --stdin`."
+            ),
+        }
     }
 
     pub async fn launch(&self, mut args: ExpRunArgs) -> Result<()> {
