@@ -216,7 +216,7 @@ const S_CREATE: AgentSkill = AgentSkill {
 };
 const S_REPORTS: AgentSkill = AgentSkill {
     name: "orx-reports",
-    description: "Write and organize durable outputs in the artifacts directory. Use before creating or organizing artifacts, including reports, summaries, and figures.",
+    description: "Write reports to the project's designated destination and organize artifact files. Use before creating or organizing artifacts, including reports, summaries, and figures.",
     content: REPORTS,
     resources: &[],
 };

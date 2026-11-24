@@ -206,6 +206,7 @@ pub struct Runtime {
     quoting: Mutex<std::collections::HashSet<String>>,
     changed: Notify,
     collect_now: Notify,
+    notion_delivery: Arc<tokio::sync::Mutex<()>>,
     /// Held while a local run is unfinished; a failure is kept so it is logged once.
     #[cfg(windows)]
     awake: Mutex<Option<std::io::Result<std::os::windows::io::OwnedHandle>>>,
@@ -234,6 +235,7 @@ impl Runtime {
             quoting: Mutex::default(),
             changed: Notify::new(),
             collect_now: Notify::new(),
+            notion_delivery: Arc::default(),
             #[cfg(windows)]
             awake: Mutex::default(),
         })
@@ -445,6 +447,31 @@ impl Runtime {
         self.engine.scan_legacy()?;
         self.engine.check_outages()?;
         let store = self.store()?;
+        if let Ok(guard) = self.notion_delivery.clone().try_lock_owned() {
+            if let Some(id) = store.next_notion_change()? {
+                let runtime = self.clone();
+                tokio::spawn(async move {
+                    let _guard = guard;
+                    let mut node = Some(id);
+                    while let Some(id) = node {
+                        if let Err(error) =
+                            crate::plane::notion_desc::deliver(runtime.data_dir.clone(), &id, false)
+                                .await
+                        {
+                            eprintln!("orx up: Notion experiment {id}: {error:#}");
+                            break;
+                        }
+                        node = match runtime.store().and_then(|store| store.next_notion_change()) {
+                            Ok(next) => next,
+                            Err(error) => {
+                                eprintln!("orx up: reading pending Notion properties: {error:#}");
+                                break;
+                            }
+                        };
+                    }
+                });
+            }
+        }
         // Deleted from the dashboard or the CLI alike.
         let deleted = |run: &str| store.get_run(run).is_ok_and(|row| row.is_none());
         let backends: Vec<_> = lock(&self.backends).values().cloned().collect();

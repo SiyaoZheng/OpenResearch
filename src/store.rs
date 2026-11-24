@@ -12,6 +12,7 @@ mod acp;
 mod costs;
 mod env;
 mod flags;
+pub(crate) mod notion;
 pub(crate) mod search;
 mod telemetry;
 mod watch;
@@ -1704,6 +1705,7 @@ impl Store {
             "ALTER TABLE chat_project_moves ADD COLUMN scratch INTEGER",
             "ALTER TABLE local_experiments ADD COLUMN chat_session_id TEXT",
             "ALTER TABLE local_experiments ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE local_experiments ADD COLUMN notion_source_id TEXT",
             "ALTER TABLE local_experiments ADD COLUMN run_monitor_json TEXT",
             "ALTER TABLE ssh_host_tests ADD COLUMN tools_found INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE ssh_host_tests ADD COLUMN missing_tools TEXT NOT NULL DEFAULT ''",
@@ -1773,6 +1775,7 @@ impl Store {
                 }
             }
         }
+        notion::install(&schema)?;
         schema.execute_batch(
             "CREATE INDEX IF NOT EXISTS idx_chat_usage_samples_recorded
                  ON chat_usage_samples(recorded_at);

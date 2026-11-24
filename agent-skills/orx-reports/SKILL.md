@@ -10,7 +10,11 @@ In a project with a Notion report database, write independent reports directly w
 checkout, consult the current project guide on its baseline branch. Query the report's stable
 artifact-relative source key with `ntn datasources query`. For one matching report,
 read its complete v2 Markdown and patch only the report above the team-notes heading
-with `update_content` on `v1/pages/<id>/markdown`. Preserve its notes and attachments.
+with `update_content` on `v1/pages/<id>/markdown`. If the revision changes the
+cited run, report date or title, patch the corresponding properties on the same
+page with `ntn api v1/pages/<id> -X PATCH -d @-`. Recalculate the experiment
+time, its basis and the sort timestamp from the revised evidence. Read back both
+the body and the properties before handing off the page. Preserve notes and attachments.
 For a new key, send JSON on stdin to `ntn api v1/pages -X POST -d @-` with
 `parent.data_source_id`, `markdown_version` set to `v2`, the Markdown body, and
 properties for title, source key, category, experiment time and time basis.

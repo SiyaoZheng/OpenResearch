@@ -138,7 +138,9 @@ Sign in to the intended workspace using `ntn login`. Save this JSON in `<orx-dat
 }
 ```
 
-The optional `notes_heading` reserves a section for collaborators. The CLI reads and edits the description above the heading. The optional `create_properties` object supplies additional Notion page properties when the CLI creates a page. A project's first read seeds a missing page with that experiment's local description. The experiment ID identifies the page across subsequent reads and writes. The binding applies only to that project in that ORX data directory.
+The optional `notes_heading` reserves a section for collaborators. The CLI reads and edits the description above the heading. The optional `create_properties` object supplies additional Notion page properties when the CLI creates a page. Creating an experiment or explicitly saving its description creates a missing page. Reading a missing page reports its source key. The experiment's source ID identifies the page across reads, writes and project transfers. The binding applies to that local project in its ORX data directory.
+
+Projects that configure lifecycle properties register their local project ID in `notion_bound_projects`. Creating, moving, renaming or archiving an experiment and recording a run start put its changed properties in `notion_node_changes` within the same SQLite transaction. The CLI delivers changes during the operation, and the run engine delivers pending changes through `ntn` after a restart or connection failure. Each write checks the source key and configured category. Report revisions use the original page’s Markdown and properties endpoints.
 
 **Code, experiments, runs, logs, chats, transcripts and artifacts go to openresearch.sh only when the user publishes a project.** Otherwise its API serves accounts, organizations, SSH keys, sandboxes and compute catalogs, plus the telemetry and feedback below. A test keeps research-state endpoints other than publishing out of `src/client.rs`; `src/jobs/rental.rs`, the box's `orx-host` and `src/telemetry.rs` call the API beyond that test's reach. Other traffic:
 
