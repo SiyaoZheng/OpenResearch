@@ -1,4 +1,5 @@
 use crate::error::{anyhow, bail, Context, Result};
+use crate::notion::heading_offsets;
 use crate::store::{
     notion::{Node, ALL, ARCHIVED, PARENT, TIME, TITLE},
     Store,
@@ -325,9 +326,7 @@ impl Backend {
                 let update = if old.is_empty() {
                     json!({"markdown_version":"v2","type":"insert_content","insert_content":{"content":new}})
                 } else {
-                    json!({"markdown_version":"v2","type":"update_content","update_content":{
-                        "content_updates":[{"old_str":old,"new_str":new}]
-                    }})
+                    crate::notion::replace_markdown(old, &new)
                 };
                 self.api("PATCH", &path, Some(update)).await?;
             }
@@ -404,33 +403,4 @@ pub(crate) async fn deliver(data_dir: PathBuf, id: &str, created: bool) -> Resul
         }
     }
     result.with_context(|| format!("Node {id} is saved in ORX. Check the Notion error below. After correcting it, rerun the project binding to deliver pending properties."))
-}
-
-fn heading_offsets<'a>(markdown: &'a str, heading: &'a str) -> impl Iterator<Item = usize> + 'a {
-    let mut offset = 0;
-    let mut fence: Option<(u8, usize)> = None;
-    markdown.split_inclusive('\n').filter_map(move |line| {
-        let start = offset;
-        offset += line.len();
-        let line = line.trim_end_matches(['\r', '\n']);
-        let left = line.trim_start_matches(' ');
-        if line.len() - left.len() <= 3 {
-            if let Some(mark @ (b'`' | b'~')) = left.bytes().next() {
-                let count = left.bytes().take_while(|&ch| ch == mark).count();
-                if count >= 3 {
-                    match fence {
-                        None => fence = Some((mark, count)),
-                        Some((ch, n))
-                            if ch == mark && n <= count && left[count..].trim().is_empty() =>
-                        {
-                            fence = None
-                        }
-                        _ => {}
-                    }
-                    return None;
-                }
-            }
-        }
-        (fence.is_none() && line.trim_end() == heading).then_some(start)
-    })
 }

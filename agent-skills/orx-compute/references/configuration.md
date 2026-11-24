@@ -81,15 +81,19 @@ orx compute instructions show --json
 orx compute instructions set --file - --expected-revision <revision>
 ```
 
-There is one canonical `<ORX config directory>/compute/CUSTOM.md`; it is not a
-copy in each session's generated skills. `set --file -` reads stdin. Use the
-revision from the last read; a conflict means reread and reconcile. The CLI
-write lock serializes `set` calls; the revision rejects changes saved since
-`show` and before the check. Agents and users should update through `set`.
-`orx compute instructions path` locates or initializes the file for inspection.
-Direct editor saves do not use the lock and can race with `set`; close or reload
-an editor before a CLI update rather than editing concurrently.
-Skill refreshes, upgrades, and session cleanup do not own or delete this file.
+The default document is `CUSTOM.md`. To inspect or edit the global Metal
+profile, add `--document metal-defaults.json` to the same `show`, `path` or
+`set` command. Plain `show` prints the file content. `show --json` includes
+the revision for `set --expected-revision`. Reread and reconcile on a conflict.
+
+A bound installation reads and writes each selected Notion memory page directly
+through the official `ntn` CLI. Edit the section under the filename heading and
+above `ORX archive`. Metal uses one JSON code block. An unavailable page is a
+read or write error. `path` exports the current content to the local inspection
+path. Without a page binding, these commands use the file in the local
+`compute/` configuration directory. `set --file -` reads the proposed content
+from stdin. Pin the Metal profile in a project's source when a run must replay
+with the same settings.
 
 Keep a short section for each backend/host: verified environment activation,
 data paths, relevant constraints, and documentation links. Example:

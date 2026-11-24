@@ -146,6 +146,32 @@ On that page, add a level-two heading `ORX CLI` followed by a JSON code block. T
 
 Reads and writes use Notion-flavored Markdown v2. A process reuses a read for up to eight seconds. Writes fetch the current block, replace the exact matching text and verify the changed fields on the same page. Surrounding notes and additional JSON keys survive a save. Connection and edit conflicts are reported to the writer. Offline reads use an owner-only cache of the last verified values for that workspace and page. On a first read without a cache, the CLI reports the error and uses its local defaults. SSH connection options, credentials, machine paths, permissions and publication choices still use their native local storage. The SSH alias must be configured on the machine that runs the experiment.
 
+The same binding can name the original memory pages for compute guidance and
+Apple Metal defaults. Each entry in `compute_documents` enables its own
+document independently. Existing two-ID bindings retain local compute files.
+
+```json
+{
+  "workspace_id": "<workspace UUID>",
+  "page_id": "<global preferences page UUID>",
+  "compute_documents": {
+    "compute/CUSTOM.md": "<guidance page UUID>",
+    "compute/metal-defaults.json": "<Metal defaults page UUID>"
+  }
+}
+```
+
+On each page, place the editable body below a level-two heading with the
+filename (`CUSTOM.md` or `metal-defaults.json`) and above a level-two heading
+`ORX archive`. Guidance uses Notion-flavored Markdown v2. Metal uses one JSON
+code block containing the profile object. Keep file attachments outside the
+editable section. `orx compute instructions show` reads the guidance page.
+`--document metal-defaults.json` selects the Metal page for the same commands.
+`set` compares the document revision, updates the matching section, and reads
+the saved page back. Connection failures reach the caller. `path` exports a
+fresh local copy for tools which require a filename. A committed experiment
+profile records the values chosen for that run.
+
 Projects can bind `orx exp desc` to a Notion data source using the official Notion CLI (`ntn`). Each read fetches the current Notion page. Each write updates that page and then refreshes the local description for the dashboard and project exports. A connection error is reported to the caller. If the project also designates a Notion database for independent reports, agents write the report body and its properties directly to that database with `ntn` as described in `orx-reports`.
 
 Sign in to the intended workspace using `ntn login`. Save this JSON in `<orx-data-dir>/notion-sync/<project-id>/desc.json` with the workspace and data source UUIDs and the column names of the existing data source. The experiment ID column must use the rich-text type. The title column must use the title type.
