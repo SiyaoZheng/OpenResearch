@@ -57,6 +57,8 @@ pub struct SharedProject {
 #[serde(rename_all = "camelCase")]
 pub struct SharedExperiment {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_id: Option<String>,
     pub parent_id: Option<String>,
     pub slug: String,
     pub branch: String,
@@ -86,6 +88,8 @@ pub struct SharedRun {
     pub chat_id: Option<String>,
     #[serde(default)]
     pub log: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<i64>,
     pub created_at: i64,
     pub ended_at: Option<i64>,
 }
@@ -283,6 +287,9 @@ fn stage(
             }
             let backend = crate::jobs::BackendDescriptor::parse(&run.backend_json).ok();
             Ok(SharedRun {
+                started_at: store
+                    .engine_run_state(&run.id)?
+                    .and_then(|state| state.started_at),
                 backend: backend.as_ref().map(|b| b.kind.clone()),
                 flavor: backend.and_then(|b| b.flavor),
                 chat_id: shared_chat(&run.chat_session_id),
@@ -324,20 +331,23 @@ fn stage(
         },
         experiments: experiments
             .into_iter()
-            .map(|experiment| SharedExperiment {
-                chat_id: shared_chat(&experiment.chat_session_id),
-                id: experiment.id,
-                parent_id: experiment.parent_experiment_id,
-                slug: experiment.slug,
-                branch: experiment.branch_name,
-                title: experiment.title,
-                description: experiment.description,
-                run_command: experiment.run_command,
-                archived: experiment.archived,
-                created_at: experiment.created_at,
-                updated_at: experiment.updated_at,
+            .map(|experiment| {
+                Ok(SharedExperiment {
+                    source_id: store.notion_source_id(&experiment.id)?,
+                    chat_id: shared_chat(&experiment.chat_session_id),
+                    id: experiment.id,
+                    parent_id: experiment.parent_experiment_id,
+                    slug: experiment.slug,
+                    branch: experiment.branch_name,
+                    title: experiment.title,
+                    description: experiment.description,
+                    run_command: experiment.run_command,
+                    archived: experiment.archived,
+                    created_at: experiment.created_at,
+                    updated_at: experiment.updated_at,
+                })
             })
-            .collect(),
+            .collect::<Result<Vec<_>>>()?,
         runs,
         chats: chats
             .into_iter()
@@ -849,6 +859,13 @@ fn import_staged(
             chat_session_id: chat(&experiment.chat_id),
             archived: experiment.archived,
         })?;
+        tx.execute(
+            "UPDATE local_experiments SET notion_source_id=?2 WHERE id=?1",
+            rusqlite::params![
+                experiment_ids[experiment.id.as_str()],
+                experiment.source_id.as_ref().unwrap_or(&experiment.id)
+            ],
+        )?;
     }
     let now = now_ms();
     for run in manifest
@@ -878,6 +895,12 @@ fn import_staged(
             cancel_reason: None,
             chat_session_id: chat(&run.chat_id),
         })?;
+        if let Some(started) = run.started_at {
+            tx.execute(
+                "UPDATE runs SET started_at=?2 WHERE id=?1",
+                rusqlite::params![run_ids[run.id.as_str()], started],
+            )?;
+        }
     }
     tx.commit()?;
 

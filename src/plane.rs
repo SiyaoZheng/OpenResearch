@@ -345,7 +345,7 @@ pub(crate) fn resolve_experiment(store: Store, exp_id: &str) -> Result<LocalPlan
 
 mod checkout_hint;
 pub(crate) mod local_plane;
-mod notion_desc;
+pub(crate) mod notion_desc;
 
 pub(crate) use local_plane::LocalPlane;
 

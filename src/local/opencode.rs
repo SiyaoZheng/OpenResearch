@@ -355,7 +355,19 @@ pub fn ensure_playbook(
             .map_err(|e| anyhow!("Could not create {}: {}", parent.display(), e))?;
     }
     let project_state = ProjectState::load(&project.id)?;
-    std::fs::write(&playbook, playbook_md(project, &project_state))
+    let mut instructions = playbook_md(project, &project_state);
+    match crate::plane::notion_desc::Backend::for_project(&crate::store::data_dir(), &project.id) {
+        Ok(Some(binding)) => {
+            if let Some(reports) = binding.report_instructions() {
+                instructions.push_str(&format!("\n{reports}\n"));
+            }
+        }
+        Err(error) => instructions.push_str(&format!(
+            "\nCheck the project’s Notion configuration before writing a report: {error:#}\n"
+        )),
+        Ok(None) => {}
+    }
+    std::fs::write(&playbook, instructions)
         .map_err(|e| anyhow!("Could not write {}: {}", playbook.display(), e))?;
     // Modular skills, written fresh beside the playbook (same freshness
     // semantics) so this session's agent discovers them natively.

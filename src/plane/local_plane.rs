@@ -348,24 +348,47 @@ impl LocalPlane {
     pub async fn experiment_desc(&self, set: Option<String>, stdin: bool) -> Result<()> {
         let input = DescInput::resolve(set, stdin).await?;
         let mut exp = self.experiment()?.clone();
-        if let Some(notion) = super::notion_desc::Backend::for_project(&exp.project_id)? {
-            let _lock = notion.lock()?;
+        if let Some(notion) =
+            super::notion_desc::Backend::for_project(self.store.data_dir(), &exp.project_id)?
+        {
             match input {
                 DescInput::Get => {
-                    let body = notion.description(&exp, None).await?;
+                    let key = self.store.notion_source_id(&exp.id)?;
+                    let body = notion
+                        .read(key.as_deref().unwrap_or(&exp.id), &exp.id)
+                        .await?;
                     Self::print_description(&exp.id, Some(&body));
                 }
                 DescInput::Set(body) => {
-                    notion.description(&exp, Some(&body)).await?;
+                    let _lock = notion.lock().await?;
+                    let latest = self
+                        .store
+                        .get_local_experiment(&exp.id)?
+                        .ok_or_else(|| anyhow!("Experiment {} no longer exists", exp.id))?;
+                    let pending = self.store.notion_pending(&exp.id)?;
+                    notion
+                        .publish(
+                            &self.store.notion_node(latest)?,
+                            pending.map_or(0, |p| p.0),
+                            Some(&body),
+                        )
+                        .await?;
                     self.store
                         .cache_experiment_description(&exp.id, &body)
                         .context(
                         "Description saved in Notion; refreshing the local experiment copy failed",
                     )?;
+                    if let Some((_, revision)) = pending {
+                        self.store.finish_notion_change(&exp.id, revision)?;
+                    }
                     println!("✓ Description saved in Notion.");
                 }
             }
             return Ok(());
+        }
+        if self.store.notion_bound(&exp.project_id)? {
+            anyhow::bail!("Restore {}/notion-sync/{}/desc.json with the project binding before reading or saving experiment {}.",
+                          self.store.data_dir().display(), exp.project_id, exp.id);
         }
         match input {
             DescInput::Set(description) => {
@@ -499,6 +522,8 @@ impl LocalPlane {
             description,
             run_command,
         )?;
+
+        super::notion_desc::deliver(store.data_dir().to_owned(), &experiment.id, true).await?;
 
         if project.github_enabled() {
             if let Err(error) = crate::local::git::spawn_branch_publication(

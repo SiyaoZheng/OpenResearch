@@ -81,16 +81,18 @@ pub async fn run(args: crate::ExpArgs) -> Result<()> {
             only,
             descendants,
             ..
-        } => archive(&mut store, &exp_id, ancestors, only, descendants, true),
+        } => archive(&mut store, &exp_id, ancestors, only, descendants, true).await,
         ExpCommand::Unarchive {
             exp_id,
             ancestors,
             only,
             descendants,
             ..
-        } => archive(&mut store, &exp_id, ancestors, only, descendants, false),
+        } => archive(&mut store, &exp_id, ancestors, only, descendants, false).await,
         ExpCommand::Delete { exp_id } => delete(&store, &exp_id),
-        ExpCommand::Move { exp_id, parent, .. } => reparent(&store, &exp_id, parent.as_deref()),
+        ExpCommand::Move { exp_id, parent, .. } => {
+            reparent(&store, &exp_id, parent.as_deref()).await
+        }
         ExpCommand::Status {
             exp_id,
             scheduler,
@@ -521,7 +523,7 @@ async fn set_view(exp_id: &str, body: serde_json::Value) -> Result<serde_json::V
     answer(request).await
 }
 
-fn archive(
+async fn archive(
     store: &mut Store,
     id: &str,
     ancestors: bool,
@@ -539,6 +541,9 @@ fn archive(
         unreachable!("clap requires an archive scope")
     };
     let ids = crate::local::experiments::set_archived(store, id, direction, archived)?;
+    for node in &ids {
+        crate::plane::notion_desc::deliver(store.data_dir().to_owned(), node, false).await?;
+    }
     println!(
         "{} {} experiment(s).",
         if archived { "Archived" } else { "Restored" },
@@ -562,8 +567,9 @@ fn delete(store: &Store, id: &str) -> Result<()> {
     Ok(())
 }
 
-fn reparent(store: &Store, id: &str, parent: Option<&str>) -> Result<()> {
+async fn reparent(store: &Store, id: &str, parent: Option<&str>) -> Result<()> {
     let before = crate::local::experiments::move_experiment(store, id, parent)?;
+    crate::plane::notion_desc::deliver(store.data_dir().to_owned(), id, false).await?;
     println!(
         "Moved {} ({}) from {} to {}.",
         before.id,
