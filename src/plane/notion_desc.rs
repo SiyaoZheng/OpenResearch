@@ -8,10 +8,7 @@ use serde_json::{json, Map, Value};
 use std::fs::{File, OpenOptions};
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::time::Duration;
-use tokio::io::AsyncWriteExt;
-use tokio::process::Command;
 use uuid::Uuid;
 
 #[derive(Deserialize)]
@@ -125,50 +122,14 @@ impl Backend {
     }
 
     async fn api(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value> {
-        let mut command = Command::new("ntn");
-        if let Some(path) = crate::local::shell_env::search_path() {
-            command.env("PATH", path);
-        }
-        command
-            .env_remove("NOTION_API_TOKEN")
-            .env("NOTION_WORKSPACE_ID", &self.config.workspace_id)
-            .args(["api", path, "-X", method])
-            .kill_on_drop(true)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        if body.is_some() {
-            command.args(["-d", "@-"]).stdin(Stdio::piped());
-        } else if path.ends_with("/markdown") {
-            command.arg("markdown_version==v2");
-        }
-        let output = tokio::time::timeout(Duration::from_secs(180), async {
-            let mut child = command.spawn().context("Starting Notion CLI (ntn)")?;
-            if let Some(data) = body {
-                let bytes = serde_json::to_vec(&data)?;
-                child
-                    .stdin
-                    .take()
-                    .context("Opening ntn input")?
-                    .write_all(&bytes)
-                    .await?;
-            }
-            child.wait_with_output().await.context("Waiting for ntn")
-        })
+        crate::notion::api(
+            &self.config.workspace_id,
+            method,
+            path,
+            body,
+            Duration::from_secs(180),
+        )
         .await
-        .with_context(|| format!("Notion CLI timed out on {method} {path}"))??;
-        if !output.status.success() {
-            bail!(
-                "Notion CLI {method} {path}: {}",
-                String::from_utf8_lossy(&output.stderr).trim()
-            );
-        }
-        let response: Value =
-            serde_json::from_slice(&output.stdout).context("Invalid JSON from ntn")?;
-        if response["object"] == "error" {
-            bail!("Notion {method} {path}: {}", response["message"]);
-        }
-        Ok(response)
     }
 
     async fn find_page(&self, key: &str) -> Result<Option<Value>> {
@@ -357,16 +318,7 @@ impl Backend {
     async fn markdown(&self, page: &str, replacement: Option<String>) -> Result<String> {
         let path = format!("v1/pages/{page}/markdown");
         let response = self.api("GET", &path, None).await?;
-        if response["truncated"].as_bool() != Some(false)
-            || response["unknown_block_ids"]
-                .as_array()
-                .is_none_or(|ids| !ids.is_empty())
-        {
-            bail!("Notion returned incomplete Markdown for page {page}");
-        }
-        let markdown = response["markdown"]
-            .as_str()
-            .context("Missing Notion page Markdown")?;
+        let markdown = crate::notion::complete_markdown(&response, page)?;
         let (body, old) = self.managed(page, markdown)?;
         if let Some(new) = replacement {
             if new != old {

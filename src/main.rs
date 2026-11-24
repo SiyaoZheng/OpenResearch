@@ -28,6 +28,7 @@ mod jobs;
 #[allow(dead_code)]
 mod local;
 mod net;
+mod notion;
 mod output;
 mod paths;
 mod plane;

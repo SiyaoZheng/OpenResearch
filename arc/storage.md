@@ -14,7 +14,7 @@ orx keeps projects, experiments, runs, chats and transcripts on the researcher's
 
 **The config directory never moves**, because the setting that points at the data directory lives there and a lock inside the data directory could not guard a move of it. `settings.json` has one writer, the locked read-modify-write in `src/telemetry.rs`, and every save keeps the fields a newer orx wrote; a second writer would clobber them.
 
-**A project's settings override the machine's, one by one, and a chat's literature sources override its project's.** `settings.json` holds the machine's choice (default compute, literature sources); a project's own choices sit in its store row (`settings_json`), a chat's sources in its own (`lit_sources_json`), and neither travels with a share. A setting the project leaves unset follows the machine's, so resetting one deletes it rather than copying the machine's value. `orx` commands act on the project of the chat that runs them, else the one whose folder holds the working directory (`src/local/resolve.rs`).
+**A project's settings override the machine's, one by one, and a chat's literature sources override its project's.** The machine reads its choice (default compute, literature sources) from the configured Notion preference page or its local `settings.json`; a project's own choices sit in its store row (`settings_json`), a chat's sources in its own (`lit_sources_json`), and neither travels with a share. A setting the project leaves unset follows the machine's, so resetting one deletes it rather than copying the machine's value. `orx` commands act on the project of the chat that runs them, else the one whose folder holds the working directory (`src/local/resolve.rs`).
 
 OpenCode provider records (`opencode-providers.json`, including API keys) stay in config. Custom endpoint records, names and icons live in the data directory's `local-models.json`; OpenCode OAuth credentials live in its isolated database.
 
@@ -123,6 +123,28 @@ Old layouts are recognised by where things are, never by a marker recording that
 Detection repeats on every start, so an interrupted rename or reference repair resumes on the next run. An interrupted cross-filesystem copy, or a repository root present in both places, stops with every file preserved and asks the user to resolve it.
 
 ## What leaves the machine
+
+An installation can use an existing **Notion memory page for global preferences**. Sign into its workspace with the official Notion CLI (`ntn`) and save both IDs in `$XDG_CONFIG_HOME/openresearch/notion-preferences.json` (default `~/.config/openresearch/notion-preferences.json`).
+
+```json
+{"workspace_id":"<workspace UUID>","page_id":"<memory page UUID>"}
+```
+
+On that page, add a level-two heading `ORX CLI` followed by a JSON code block. The block accepts the following fields. An empty list enables every literature source. A null value uses the ordinary CLI default for that setting.
+
+```json
+{
+  "defaultBackend": "ssh",
+  "defaultFlavor": null,
+  "defaultSshHost": "lab",
+  "disabledLitSources": [],
+  "dashboardLocale": "en",
+  "autoUpdate": false,
+  "updateChannel": null
+}
+```
+
+Reads and writes use Notion-flavored Markdown v2. A process reuses a read for up to eight seconds. Writes fetch the current block, replace the exact matching text and verify the changed fields on the same page. Surrounding notes and additional JSON keys survive a save. Connection and edit conflicts are reported to the writer. Offline reads use an owner-only cache of the last verified values for that workspace and page. On a first read without a cache, the CLI reports the error and uses its local defaults. SSH connection options, credentials, machine paths, permissions and publication choices still use their native local storage. The SSH alias must be configured on the machine that runs the experiment.
 
 Projects can bind `orx exp desc` to a Notion data source using the official Notion CLI (`ntn`). Each read fetches the current Notion page. Each write updates that page and then refreshes the local description for the dashboard and project exports. A connection error is reported to the caller. If the project also designates a Notion database for independent reports, agents write the report body and its properties directly to that database with `ntn` as described in `orx-reports`.
 

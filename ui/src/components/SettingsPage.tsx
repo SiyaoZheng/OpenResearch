@@ -3974,7 +3974,16 @@ const LOCALE_CHOICES: { id: Locale; label: string }[] = [
 ];
 
 function AppearanceTab() {
+  const workspace = useWorkspace();
+  const runtime = useQuery(workspace.queries.getRuntimeQuery()).data;
   const locale = useLocale();
+  const saveLanguage = useMutation({
+    mutationFn: (next: Locale) => workspace.api.reportLocale(next),
+    onSuccess: (_, next) => {
+      setLocale(next);
+      void workspace.queryClient.invalidateQueries({ queryKey: workspace.queries.getRuntimeQuery().queryKey });
+    },
+  });
   const [preference, setPreference] = useThemePreference();
   const [coloredMarkdown, setColoredMarkdown] = useColoredMarkdown();
   const [chatWidth, setChatWidth] = useChatWidth();
@@ -4072,10 +4081,14 @@ function AppearanceTab() {
               value={locale}
               variant="field"
               dropDown
+              disabled={saveLanguage.isPending}
               onSelect={(next) => {
-                if (isLocale(next)) setLocale(next);
+                if (!isLocale(next)) return;
+                if (runtime?.kind === "ssh" || runtime?.notionPreferences) saveLanguage.mutate(next);
+                else setLocale(next);
               }}
             />
+            {saveLanguage.error && <p role="alert" className="text-sm text-accent-red">{saveLanguage.error.message}</p>}
           </div>
         </div>
       </div>
