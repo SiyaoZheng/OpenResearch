@@ -565,7 +565,7 @@ pub enum ExpCommand {
         json: bool,
     },
 
-    /// View the experiment's description/notes, or overwrite it with `--set` / `--stdin`.
+    /// Read or write the experiment description. Projects with a Notion binding use notion-cli (ntn).
     Desc {
         exp_id: String,
         /// Overwrite the description with this value.

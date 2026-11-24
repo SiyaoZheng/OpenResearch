@@ -4504,6 +4504,17 @@ impl Store {
         Ok(())
     }
 
+    pub fn cache_experiment_description(&self, id: &str, description: &str) -> Result<()> {
+        let changed = self.conn.execute(
+            "UPDATE local_experiments SET description = ?2, updated_at = MAX(updated_at + 1, ?3) WHERE id = ?1",
+            params![id, description, now_ms()],
+        )?;
+        if changed != 1 {
+            anyhow::bail!("Experiment {id} no longer exists in the local store");
+        }
+        Ok(())
+    }
+
     pub fn set_experiments_archived(
         &mut self,
         ids: &[String],

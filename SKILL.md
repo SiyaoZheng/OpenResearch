@@ -102,7 +102,7 @@ group below has a module (`orx skill <name>`) with the full flags and rules.
 | `orx exp status/run/cancel/wait/wake <localExpId>` | Inspect (with the latest run's stage, estimate and measures), run, cancel, wait on, or register a wake-up for a local experiment node. |
 | `orx exp flag <runId> --flag <flagId> (--keep \| --ask \| --stop) [--reason "<why>"]` | Verify the flag against the run, then choose Keep, Ask or Stop. Give a specific Keep reason for the watcher's next looks. See `orx-experiment-runs` to tune the watcher live. |
 | `orx exp move/archive/unarchive/delete <localExpId>` | Re-parent, hide, restore, or permanently delete experiment nodes; see `orx-experiment-tree`. |
-| `orx exp desc <expId> [--set "<text>" \| --stdin]` | Read or overwrite the experiment's description. |
+| `orx exp desc <expId> [--set "<text>" \| --stdin]` | Read or overwrite the experiment's description. A project with a Notion binding reads and writes the corresponding page through `ntn`. |
 | `orx exp view set <expId> [--file <view.xml>] [--pattern <patterns.json>] [--config <plan.json>]` / `view get <expId>` / `view check <runId>` | Set what an experiment's runs show and the stages they go through (copied into children), print it, or check it against what a run reported; see `orx-experiment-runs`. |
 
 To **read or edit** a node's code—including diffing what a run changed—use plain
